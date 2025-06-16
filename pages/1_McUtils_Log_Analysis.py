@@ -85,13 +85,18 @@ if uploaded_file:
 
         analyze = st.button("Analyze Log data")
 
-        if analyze:
-            # Filter data based on selections
-            filtered_df = df[
-                df['socket'].isin(selected_sockets) &
-                df['mc'].isin(selected_mcs) &
-                df['ch'].isin(selected_chs)
-            ]
+        # Use session_state to persist filtered_df and stats
+        if analyze or ("filtered_df" in st.session_state and "stats" in st.session_state):
+            if analyze:
+                # Filter data based on selections
+                filtered_df = df[
+                    df['socket'].isin(selected_sockets) &
+                    df['mc'].isin(selected_mcs) &
+                    df['ch'].isin(selected_chs)
+                ]
+                st.session_state["filtered_df"] = filtered_df
+            else:
+                filtered_df = st.session_state["filtered_df"]
 
             if filtered_df.empty:
                 st.warning("No data available for the selected filters.")
@@ -100,47 +105,104 @@ if uploaded_file:
                 st.dataframe(filtered_df)
 
                 # Statistics
+                if analyze or "stats" not in st.session_state:
+                    stats = filtered_df.groupby(['mc', 'ch']).agg(
+                        sample_count=('read', 'count'),
+                        min_read=('read', 'min'),
+                        max_read=('read', 'max'),
+                        avg_read=('read', 'mean'),
+                        p95_read=('read', lambda x: np.percentile(x, 95)),
+                        min_write=('write', 'min'),
+                        max_write=('write', 'max'),
+                        avg_write=('write', 'mean'),
+                        p95_write=('write', lambda x: np.percentile(x, 95)),
+                        min_req=('req', 'min'),
+                        max_req=('req', 'max'),
+                        avg_req=('req', 'mean'),
+                        p95_req=('req', lambda x: np.percentile(x, 95)),
+                    ).reset_index()
+                    st.session_state["stats"] = stats
+                else:
+                    stats = st.session_state["stats"]
+
                 st.subheader("Bandwidth Statistics (GB/s)")
-                stats = filtered_df.groupby(['mc', 'ch']).agg(
-                    sample_count=('read', 'count'),
-                    min_read=('read', 'min'),
-                    max_read=('read', 'max'),
-                    avg_read=('read', 'mean'),
-                    p95_read=('read', lambda x: np.percentile(x, 95)),
-                    min_write=('write', 'min'),
-                    max_write=('write', 'max'),
-                    avg_write=('write', 'mean'),
-                    p95_write=('write', lambda x: np.percentile(x, 95)),
-                    min_req=('req', 'min'),
-                    max_req=('req', 'max'),
-                    avg_req=('req', 'mean'),
-                    p95_req=('req', lambda x: np.percentile(x, 95)),
-                ).reset_index()
                 st.dataframe(stats)
+
+                # Bar Chart for Statistics (Moved and Modified)
+                st.subheader("Bandwidth Statistics Bar Chart")
+                import altair as alt # Ensure altair is imported if not already in this scope
+
+                # Prepare data for bar chart
+                stats_chart_df = stats.copy()
+                stats_chart_df['MC_CH'] = stats_chart_df['mc'].astype(str) + '_' + stats_chart_df['ch'].astype(str)
+
+                all_stat_cols = [col for col in stats.columns if col not in ['mc', 'ch', 'sample_count']]
+                possible_defaults = ['avg_read', 'avg_write', 'p95_read', 'p95_write']
+                default_stat_selection = [s for s in possible_defaults if s in all_stat_cols]
+                if not default_stat_selection and all_stat_cols:
+                    default_stat_selection = all_stat_cols[:min(2, len(all_stat_cols))]
+
+                selected_stat_types = st.multiselect(
+                    "Select Statistics to Plot",
+                    options=all_stat_cols,
+                    default=default_stat_selection
+                )
+
+                unique_mc_ch_stats = sorted(stats_chart_df['MC_CH'].unique())
+                selected_mc_ch_instances = st.multiselect(
+                    "Select MC_CH Instances for Bar Chart",
+                    options=unique_mc_ch_stats,
+                    default=unique_mc_ch_stats
+                )
+
+                draw_stat_charts = st.button("Draw Stat Charts")
+                if draw_stat_charts:
+                    if selected_stat_types and selected_mc_ch_instances:
+                        stats_melted = stats_chart_df.melt(
+                            id_vars=['MC_CH', 'mc', 'ch'],
+                            value_vars=selected_stat_types,
+                            var_name='statistic_name',
+                            value_name='value'
+                        )
+                        stats_to_plot = stats_melted[stats_melted['MC_CH'].isin(selected_mc_ch_instances)]
+                        if not stats_to_plot.empty:
+                            bar_chart = alt.Chart(stats_to_plot).mark_bar().encode(
+                                x=alt.X('statistic_name:N', title='Statistic Type', axis=alt.Axis(labelAngle=-45), sort=None),
+                                y=alt.Y('value:Q', title='Statistic Value (GB/s)'),
+                                color=alt.Color('MC_CH:N', title='MC_CH Instance'),
+                                xOffset='MC_CH:N',  # Added to unstack/group bars
+                                tooltip=['statistic_name', 'MC_CH', alt.Tooltip('value:Q', title='Value (GB/s)', format='.2f')]
+                            ).properties(
+                                height=400
+                            ).interactive()
+                            st.altair_chart(bar_chart, use_container_width=True)
+                        else:
+                            st.info("No data to display for the selected statistics and MC_CH instances in the bar chart.")
+                    elif not selected_stat_types:
+                        st.info("Please select at least one statistic type to display the bar chart.")
+                    elif not selected_mc_ch_instances:
+                        st.info("Please select at least one MC_CH instance to display the bar chart.")
 
                 # Charts
                 st.subheader("Bandwidth Over Time (GB/s)")
-                import altair as alt
+                # import altair as alt # This import might be redundant if already imported above for the bar chart
 
                 # Prepare a DataFrame for charting with a combined MC_CH column
-                # Use a copy to avoid modifying filtered_df if it's used elsewhere,
-                # or add directly if only for charting.
                 chart_df = filtered_df.copy()
                 chart_df['MC_CH'] = chart_df['mc'].astype(str) + '_' + chart_df['ch'].astype(str)
-                
                 for metric in ['read', 'write', 'req']:
                     st.markdown(f"**{metric.capitalize()} Bandwidth Over Time**")
-                    
-                    # Optimized chart generation using long-form data directly
                     chart = alt.Chart(chart_df).mark_line().encode(
-                        x=alt.X('sample_number:O', title='Sample Number', sort=None), # Assuming sample_number is already ordered
+                        x=alt.X('sample_number:O', title='Sample Number', sort=None),
                         y=alt.Y(f'{metric}:Q', title=f'{metric.capitalize()} Bandwidth (GB/s)'),
                         color=alt.Color('MC_CH:N', title='MC_CH'),
                         tooltip=['sample_number', 'MC_CH', alt.Tooltip(f'{metric}:Q', title=f'{metric.capitalize()} (GB/s)')]
                     ).properties(
                         width=700,
                         height=350
-                    ).interactive() # Add interactive() for zoom, pan, and interactive legend
+                    ).interactive()
                     st.altair_chart(chart, use_container_width=True)
+
+                # The Bar Chart for Statistics section that was previously here has been moved up.
 else:
     st.info("Please upload a McUtils log file to begin analysis.")
