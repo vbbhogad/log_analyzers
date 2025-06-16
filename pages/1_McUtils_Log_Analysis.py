@@ -175,7 +175,22 @@ if uploaded_file:
                             ).properties(
                                 height=400
                             ).interactive()
-                            st.altair_chart(bar_chart, use_container_width=True)
+
+                            # Add text labels to display values on each bar, aligned with each bar using xOffset
+                            text = alt.Chart(stats_to_plot).mark_text(
+                                align='center',
+                                baseline='bottom',
+                                dy=-4,  # move text slightly above the bar
+                                fontSize=12
+                            ).encode(
+                                x=alt.X('statistic_name:N', sort=None),
+                                y=alt.Y('value:Q'),
+                                xOffset=alt.X('MC_CH:N'),  # Align text with grouped bars
+                                text=alt.Text('value:Q', format='.2f'),
+                                color=alt.value('black')
+                            )
+
+                            st.altair_chart(bar_chart + text, use_container_width=True)
                         else:
                             st.info("No data to display for the selected statistics and MC_CH instances in the bar chart.")
                     elif not selected_stat_types:
