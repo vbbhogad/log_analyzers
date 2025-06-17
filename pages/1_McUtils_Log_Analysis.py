@@ -4,9 +4,9 @@ import numpy as np
 import io
 import re
 
-st.title("McUtils Log Analysis")
+st.title("McUtils Log Memory Bandwidth Analysis")
 
-uploaded_file = st.file_uploader("Upload McUtils Log File", type=["log", "txt"])
+uploaded_file = st.file_uploader("Upload McUtils Log File containign Memory bandwidth data", type=["log", "txt"])
 
 @st.cache_data  # Add caching decorator
 def parse_mcutils_log(file_content):
@@ -101,7 +101,7 @@ if uploaded_file:
             if filtered_df.empty:
                 st.warning("No data available for the selected filters.")
             else:
-                st.subheader("Parsed Raw Data (GB/s)")
+                st.subheader("Parsed Raw Data for Memory Bandwidth (GB/s)")
                 st.dataframe(filtered_df)
 
                 # Statistics
@@ -125,7 +125,7 @@ if uploaded_file:
                 else:
                     stats = st.session_state["stats"]
 
-                st.subheader("Bandwidth Statistics (GB/s)")
+                st.subheader("Memory Bandwidth Statistics (GB/s)")
                 st.dataframe(stats)
 
                 # Bar Chart for Statistics (Moved and Modified)
@@ -199,7 +199,7 @@ if uploaded_file:
                         st.info("Please select at least one MC_CH instance to display the bar chart.")
 
                 # Charts
-                st.subheader("Bandwidth Over Time (GB/s)")
+                st.subheader("Memory Bandwidth Over Sample progression (GB/s)")
                 # import altair as alt # This import might be redundant if already imported above for the bar chart
 
                 # Prepare a DataFrame for charting with a combined MC_CH column
