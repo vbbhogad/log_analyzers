@@ -6,12 +6,18 @@ A modular toolkit for analyzing and visualizing various log files using Python a
 
 **log_analyzers** provides a user-friendly interface for parsing, analyzing, and visualizing different types of log files. It is designed for engineers, analysts, and developers who need to quickly extract insights from raw logs.
 
+## Recent Updates
+
+- Bandwidth statistics bar chart now displays values above each bar, aligned for clarity.
+- Analysis and chart state is preserved when interacting with the UI (e.g., after pressing "Draw Stat Charts").
+- Improved usability for filtering and visualizing McUtils log data.
+
 ## Features
 
 - 📊 Interactive dashboards for log analysis
 - 🗂️ Modular architecture: add new log analyzers easily
 - 🔍 Filtering, searching, and aggregation tools
-- 📈 Visualizations powered by Altair
+- 📈 Visualizations powered by Altair (with value labels on bar charts)
 - 📝 Example log files for testing
 
 ## Directory Structure
@@ -53,8 +59,8 @@ pip install streamlit pandas numpy altair
     ```
 
 3. Use the sidebar to select the log type and analysis module.
-
-4. Explore, filter, and visualize your log data interactively.
+4. Use the "Analyze Log data" button to parse and filter logs. After analysis, you can interactively draw bar charts with value labels using the "Draw Stat Charts" button.
+5. Explore, filter, and visualize your log data interactively.
 
 ## Adding a New Log Analyzer
 
